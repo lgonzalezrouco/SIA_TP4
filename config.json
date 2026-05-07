@@ -1,0 +1,19 @@
+{
+  "exercise": "kohonen",
+  "kohonen": {
+    "grid_size": 5,
+    "epochs": 1000,
+    "learning_rate": 0.1,
+    "radius": 5,
+    "normalization": "z-score"
+  },
+  "oja": {
+    "learning_rate": 0.001,
+    "epochs": 1000,
+    "tolerance": 1e-6
+  },
+  "hopfield": {
+    "patterns": ["A", "B", "C", "D"],
+    "noise_level": 0.1
+  }
+}
