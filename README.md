@@ -13,11 +13,12 @@ Este proyecto implementa tres algoritmos de aprendizaje no supervisado como part
 ```text
 SIA_TP4/
 ├── data/               # Datos de entrada (europe.csv)
+├── results/            # Gráficos y resultados exportados
 ├── src/
-│   ├── kohonen/        # Implementación de SOM
-│   ├── oja/            # Implementación de la Regla de Oja
-│   ├── hopfield/       # Implementación de la Red de Hopfield
-│   └── utils/          # Carga de datos y visualización
+│   ├── kohonen/        # Implementación de SOM (som.py, experiment.py, plots.py)
+│   ├── oja/            # Implementación de Oja (oja_neuron.py, experiment.py, plots.py)
+│   ├── hopfield/       # Implementación de Hopfield (hopfield_net.py, experiment.py, patterns.py)
+│   └── utils/          # Carga de datos y validación de config (data_loader.py, config_parser.py)
 ├── config.json         # Hiperparámetros y configuración
 ├── main.py             # Punto de entrada de la CLI
 └── pyproject.toml      # Dependencias y configuración del proyecto

@@ -38,14 +38,26 @@ uv run pytest tests/test_kohonen.py::test_bmu -v
 
 ```text
 src/
-  kohonen/      # Self-Organizing Map
-  oja/          # Oja's rule (single-layer linear neuron)
-  hopfield/     # Hopfield associative memory
-  utils/        # Data loading, preprocessing, shared plotting helpers
+  kohonen/
+    som.py        # Lógica del SOM (entrenamiento, BMU, pesos)
+    experiment.py # Orquestador (flujo train -> analyze)
+    plots.py      # Visualizaciones específicas (U-Matrix, Heatmaps)
+  oja/
+    oja_neuron.py # Neurona lineal y Regla de Oja
+    experiment.py # Entrenamiento y comparación con PCA
+    plots.py      # Gráficos de convergencia
+  hopfield/
+    hopfield_net.py # Lógica de almacenamiento y recuperación
+    patterns.py     # Definición de letras y funciones de ruido
+    experiment.py   # Pruebas de memoria asociativa
+  utils/
+    data_loader.py   # Carga y normalización Z-score
+    config_parser.py # Validación y parseo del config.json
 data/
   europe.csv
-config.json     # Algorithm hyperparameters (grid size, lr, epochs, etc.)
-main.py         # CLI entry point — parses config, dispatches to exercises
+results/          # Directorio para guardar plots y reportes
+config.json       # Hiperparámetros
+main.py           # CLI entry point - orquestador principal
 ```
 
 `main.py` reads a JSON/YAML config file and an optional `--exercise` flag to run one or all exercises.

@@ -1,16 +1,12 @@
 import argparse
-import json
-import os
 import sys
 
+from hopfield.experiment import HopfieldExperiment
+from kohonen.experiment import KohonenExperiment
+from oja.experiment import OjaExperiment
+from utils.config_parser import ConfigParser
 from utils.data_loader import load_europe_data, preprocess_data
-from kohonen.som import run_kohonen
-from oja.oja_neuron import run_oja
-from hopfield.hopfield_net import run_hopfield
 
-def load_config(config_path):
-    with open(config_path, 'r') as f:
-        return json.load(f)
 
 def main():
     parser = argparse.ArgumentParser(description="SIA TP4 - Unsupervised Learning")
@@ -19,25 +15,31 @@ def main():
     
     args = parser.parse_args()
     
-    if not os.path.exists(args.config):
-        print(f"Error: Config file {args.config} not found.")
+    try:
+        config_obj = ConfigParser(args.config)
+        config = config_obj.get_global_config()
+    except Exception as e:
+        print(f"Error loading config: {e}")
         sys.exit(1)
         
-    config = load_config(args.config)
     exercise = args.exercise or config.get("exercise", "kohonen")
+    exercise_config = config_obj.get_exercise_config(exercise)
     
     print(f"Starting SIA TP4 - Exercise: {exercise}")
     
     if exercise in ["kohonen", "oja"]:
         df = load_europe_data()
         if df is not None:
-            normalized_data, labels = preprocess_data(df)
+            data, labels = preprocess_data(df)
             if exercise == "kohonen":
-                run_kohonen(config.get("kohonen", {}), normalized_data)
+                exp = KohonenExperiment(exercise_config, data, labels)
             else:
-                run_oja(config.get("oja", {}), normalized_data)
+                exp = OjaExperiment(exercise_config, data)
+            exp.run()
+            
     elif exercise == "hopfield":
-        run_hopfield(config.get("hopfield", {}))
+        exp = HopfieldExperiment(exercise_config)
+        exp.run()
     else:
         print(f"Unknown exercise: {exercise}")
 
