@@ -1,0 +1,25 @@
+{
+  "exercise": "kohonen",
+  "kohonen": {
+    "grid_rows": 5,
+    "grid_cols": 5,
+    "topology": "rectangular",
+    "init_method": "sample",
+    "distance": "euclidean",
+    "neighborhood": "gaussian",
+    "learning_rate": {"kind": "exponential", "initial": 0.5, "final": 0.01},
+    "radius": {"kind": "exponential", "initial": 3.0, "final": 1.0},
+    "epochs": 500,
+    "seed": 42,
+    "normalization": "z-score"
+  },
+  "oja": {
+    "learning_rate": 0.001,
+    "epochs": 1000,
+    "tolerance": 1e-6
+  },
+  "hopfield": {
+    "patterns": ["A", "B", "C", "D"],
+    "noise_level": 0.1
+  }
+}

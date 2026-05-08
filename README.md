@@ -19,7 +19,8 @@ SIA_TP4/
 │   ├── oja/            # Implementación de Oja (oja_neuron.py, experiment.py, plots.py)
 │   ├── hopfield/       # Implementación de Hopfield (hopfield_net.py, experiment.py, patterns.py)
 │   └── utils/          # Carga de datos y validación de config (data_loader.py, config_parser.py)
-├── config.json         # Hiperparámetros y configuración
+├── config.example.json # Plantilla de configuración (versionada)
+├── config.json         # Hiperparámetros locales (ignorado por git)
 ├── main.py             # Punto de entrada de la CLI
 └── pyproject.toml      # Dependencias y configuración del proyecto
 ```
@@ -37,6 +38,18 @@ Para instalar las dependencias y configurar el entorno:
 
 ```bash
 uv sync
+```
+
+Antes de la primera ejecución, copiá la plantilla:
+
+```bash
+cp config.example.json config.json
+```
+
+En PowerShell:
+
+```powershell
+Copy-Item config.example.json config.json
 ```
 
 ## Ejecución
@@ -58,18 +71,30 @@ uv run main.py --config mi_configuracion.json
 
 ## Configuración
 
-El archivo `config.json` contiene los parámetros de los algoritmos:
+El archivo `config.json` contiene los parámetros de los algoritmos. La
+plantilla en `config.example.json` muestra la estructura completa para
+Kohonen:
 
 ```json
 {
   "exercise": "kohonen",
   "kohonen": {
-    "grid_size": 5,
-    "epochs": 1000,
-    "learning_rate": 0.1,
-    "radius": 5
+    "grid_rows": 5,
+    "grid_cols": 5,
+    "topology": "rectangular",
+    "init_method": "sample",
+    "distance": "euclidean",
+    "neighborhood": "gaussian",
+    "learning_rate": {"kind": "exponential", "initial": 0.5, "final": 0.01},
+    "radius": {"kind": "exponential", "initial": 3.0, "final": 1.0},
+    "epochs": 500,
+    "seed": 42
   },
   "oja": { ... },
   "hopfield": { ... }
 }
 ```
+
+`learning_rate` y `radius` aceptan tanto un número (constante) como un
+diccionario con `kind` ∈ `{constant, linear, exponential, inverse}` para
+schedules variables.
