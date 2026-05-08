@@ -4,14 +4,15 @@ import sys
 from hopfield.experiment import HopfieldExperiment
 from kohonen.experiment import KohonenExperiment
 from oja.experiment import OjaExperiment
+from oja.pca_analysis import PCAAnalyzer
 from utils.config_parser import ConfigParser
 from utils.data_loader import load_europe_data, preprocess_data
 
 
 def main():
     parser = argparse.ArgumentParser(description="SIA TP4 - Unsupervised Learning")
-    parser.add_argument("--config", type=str, default="config.json", help="Path to config file")
-    parser.add_argument("--exercise", type=str, choices=["kohonen", "oja", "hopfield"], help="Exercise to run")
+    parser.add_argument("--config", type=str, default="config.example.json", help="Path to config file")
+    parser.add_argument("--exercise", type=str, choices=["kohonen", "oja", "hopfield", "pca"], help="Exercise to run")
     
     args = parser.parse_args()
     
@@ -23,11 +24,17 @@ def main():
         sys.exit(1)
         
     exercise = args.exercise or config.get("exercise", "kohonen")
-    exercise_config = config_obj.get_exercise_config(exercise)
     
     print(f"Starting SIA TP4 - Exercise: {exercise}")
     
-    if exercise in ["kohonen", "oja"]:
+    if exercise == "pca":
+        df = load_europe_data()
+        if df is not None:
+            analyzer = PCAAnalyzer(df)
+            analyzer.run()
+            
+    elif exercise in ["kohonen", "oja"]:
+        exercise_config = config_obj.get_exercise_config(exercise)
         df = load_europe_data()
         if df is not None:
             data, labels = preprocess_data(df)
@@ -38,6 +45,7 @@ def main():
             exp.run()
             
     elif exercise == "hopfield":
+        exercise_config = config_obj.get_exercise_config(exercise)
         exp = HopfieldExperiment(exercise_config)
         exp.run()
     else:
