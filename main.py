@@ -41,7 +41,7 @@ def main():
             if exercise == "kohonen":
                 exp = KohonenExperiment(exercise_config, data, labels)
             else:
-                exp = OjaExperiment(exercise_config, data)
+                exp = OjaExperiment(exercise_config, df)
             exp.run()
             
     elif exercise == "hopfield":
