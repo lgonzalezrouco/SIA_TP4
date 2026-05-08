@@ -35,9 +35,13 @@ def _draw_grid_values(
             for r in range(rows):
                 for c in range(cols):
                     ax.text(
-                        c, r, annot_fmt.format(values[r, c]),
-                        ha="center", va="center",
-                        color=annot_color, fontsize=8,
+                        c,
+                        r,
+                        annot_fmt.format(values[r, c]),
+                        ha="center",
+                        va="center",
+                        color=annot_color,
+                        fontsize=8,
                     )
         ax.set_xticks(range(cols))
         ax.set_yticks(range(rows))
@@ -48,19 +52,26 @@ def _draw_grid_values(
         radius = 1.0 / np.sqrt(3)
         cmap_obj = plt.get_cmap(cmap)
         patches = []
-        for (y, x) in coords:
+        for y, x in coords:
             patches.append(
-                RegularPolygon((x, -y), numVertices=6, radius=radius,
-                               orientation=np.radians(30))
+                RegularPolygon(
+                    (x, -y), numVertices=6, radius=radius, orientation=np.radians(30)
+                )
             )
         coll = PatchCollection(patches, cmap=cmap_obj, edgecolor="white")
         coll.set_array(flat)
         ax.add_collection(coll)
         if annotate:
             for (y, x), v in zip(coords, flat):
-                ax.text(x, -y, annot_fmt.format(v),
-                        ha="center", va="center",
-                        color=annot_color, fontsize=8)
+                ax.text(
+                    x,
+                    -y,
+                    annot_fmt.format(v),
+                    ha="center",
+                    va="center",
+                    color=annot_color,
+                    fontsize=8,
+                )
         ax.set_xlim(coords[:, 1].min() - 1, coords[:, 1].max() + 1)
         ax.set_ylim(-coords[:, 0].max() - 1, -coords[:, 0].min() + 1)
         ax.set_aspect("equal")
@@ -73,31 +84,46 @@ def _draw_grid_values(
     return ax
 
 
-def plot_u_matrix(som, ax: plt.Axes | None = None, title: str | None = None) -> plt.Axes:
+def plot_u_matrix(
+    som, ax: plt.Axes | None = None, title: str | None = None
+) -> plt.Axes:
     """Average distance-to-neighbors heatmap. Dark cells = cluster boundaries."""
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 6))
     u = som.u_matrix()
     _draw_grid_values(
-        u, som.topology, ax,
-        cmap="bone_r", annotate=True, annot_fmt="{:.2f}",
-        annot_color="red", cbar_label="avg neighbor distance",
+        u,
+        som.topology,
+        ax,
+        cmap="bone_r",
+        annotate=True,
+        annot_fmt="{:.2f}",
+        annot_color="red",
+        cbar_label="avg neighbor distance",
     )
     ax.set_title(title or f"U-matrix ({som.topology} {som.grid_rows}x{som.grid_cols})")
     return ax
 
 
 def plot_hit_map(
-    som, data: np.ndarray, ax: plt.Axes | None = None, title: str | None = None,
+    som,
+    data: np.ndarray,
+    ax: plt.Axes | None = None,
+    title: str | None = None,
 ) -> plt.Axes:
     """How many samples landed on each neuron."""
     if ax is None:
         _, ax = plt.subplots(figsize=(7, 6))
     hits = som.hit_map(data)
     _draw_grid_values(
-        hits.astype(float), som.topology, ax,
-        cmap="YlOrRd", annotate=True, annot_fmt="{:.0f}",
-        annot_color="black", cbar_label="samples per neuron",
+        hits.astype(float),
+        som.topology,
+        ax,
+        cmap="YlOrRd",
+        annotate=True,
+        annot_fmt="{:.0f}",
+        annot_color="black",
+        cbar_label="samples per neuron",
     )
     ax.set_title(title or "Hit map")
     return ax
@@ -116,8 +142,11 @@ def plot_country_labels(
 
     hits = som.hit_map(data).astype(float)
     _draw_grid_values(
-        hits, som.topology, ax,
-        cmap="Blues", annotate=False,
+        hits,
+        som.topology,
+        ax,
+        cmap="Blues",
+        annotate=False,
         cbar_label="samples per neuron",
     )
 
@@ -135,9 +164,14 @@ def plot_country_labels(
         else:
             px, py = x, -y
         ax.text(
-            px, py, "\n".join(names),
-            ha="center", va="center", fontsize=7,
-            color="black", fontweight="bold",
+            px,
+            py,
+            "\n".join(names),
+            ha="center",
+            va="center",
+            fontsize=7,
+            color="black",
+            fontweight="bold",
         )
 
     ax.set_title(title or "Country assignment per neuron")
@@ -162,8 +196,12 @@ def plot_component_planes(
     for idx, name in enumerate(feature_names):
         ax = axes.ravel()[idx]
         _draw_grid_values(
-            som.weights[:, :, idx], som.topology, ax,
-            cmap="coolwarm", annotate=False, cbar_label=None,
+            som.weights[:, :, idx],
+            som.topology,
+            ax,
+            cmap="coolwarm",
+            annotate=False,
+            cbar_label=None,
         )
         ax.set_title(name)
     for idx in range(n_features, nrows * ncols):

@@ -1,7 +1,16 @@
 import numpy as np
 
+
 class OjaNeuron:
-    def __init__(self, n_features, learning_rate=1e-3, max_epochs=1000, tol=1e-6, seed=42, decay_type="constant"):
+    def __init__(
+        self,
+        n_features,
+        learning_rate=1e-3,
+        max_epochs=1000,
+        tol=1e-6,
+        seed=42,
+        decay_type="constant",
+    ):
         rng = np.random.default_rng(seed)
         self.w = rng.uniform(0, 1, size=n_features)
         self.lr_0 = learning_rate
@@ -21,20 +30,20 @@ class OjaNeuron:
                 lr = self.lr_0 * np.exp(-epoch / self.max_epochs)
             else:
                 lr = self.lr_0
-                
+
             w_old = self.w.copy()
             indices = np.random.permutation(len(X))
-            
+
             for i in indices:
                 x = X[i]
                 y = np.inner(x, self.w)
                 self.w += lr * y * (x - y * self.w)
-                
+
             delta = np.linalg.norm(self.w - w_old)
             self.history.append(delta)
-            
+
             if delta < self.tol:
-                print(f"Oja converge en época {epoch+1} con un delta de {delta:.2e}")
+                print(f"Oja converge en época {epoch + 1} con un delta de {delta:.2e}")
                 break
-                
+
         return self

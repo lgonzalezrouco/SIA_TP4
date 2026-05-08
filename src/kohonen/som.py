@@ -144,9 +144,7 @@ class SOM:
         if self.weights is None:
             raise RuntimeError("SOM must be fitted before computing U-matrix")
         flat_w = self.weights.reshape(-1, self.n_features)
-        neigh = grid_mod.neighbor_indices(
-            self.grid_rows, self.grid_cols, self.topology
-        )
+        neigh = grid_mod.neighbor_indices(self.grid_rows, self.grid_cols, self.topology)
         u = np.zeros(self.grid_rows * self.grid_cols, dtype=float)
         for i, nbrs in enumerate(neigh):
             if not nbrs:

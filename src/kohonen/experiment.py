@@ -17,9 +17,8 @@ from kohonen.plots import (
 from kohonen.som import SOM
 from utils import schedules
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
-DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results" / "ej1_1"
+DEFAULT_OUTPUT_DIR = PROJECT_ROOT / "results" / "kohonen"
 FEATURES = [
     "Area",
     "GDP",
@@ -33,11 +32,11 @@ FEATURES = [
 
 def _resolve_grid_size(config: dict) -> tuple[int, int]:
     if "grid_rows" in config or "grid_cols" in config:
-        rows = int(config.get("grid_rows", config.get("grid_cols", 5)))
-        cols = int(config.get("grid_cols", config.get("grid_rows", 5)))
-        return rows, cols
-    size = int(config.get("grid_size", 5))
-    return size, size
+        rows = config.get("grid_rows", config.get("grid_cols", 5))
+        cols = config.get("grid_cols", config.get("grid_rows", 5))
+        return int(rows or 5), int(cols or 5)
+    size = config.get("grid_size", 5)
+    return int(size or 5), int(size or 5)
 
 
 class KohonenExperiment:
@@ -106,13 +105,16 @@ class KohonenExperiment:
         self._sweep_epochs()
         self._sweep_seeds()
         self._write_summary(summary)
-        print("\nDone. Plots and summary saved to "
-              f"{self.output_dir.relative_to(PROJECT_ROOT)}/")
+        print(
+            "\nDone. Plots and summary saved to "
+            f"{self.output_dir.relative_to(PROJECT_ROOT)}/"
+        )
 
     # --------------------------------------------------------------- baseline
     def _baseline_plots(self):
         print("== Baseline plots ==")
         som = self.model
+        assert som is not None, "Model must be trained before analyzing"
 
         fig, ax = plt.subplots(figsize=(9, 8))
         plot_country_labels(som, self.data, self.labels, ax=ax)
@@ -145,8 +147,11 @@ class KohonenExperiment:
                 som = self._make_som(grid_rows=r, grid_cols=c, seed=seed).fit(self.data)
                 qes.append(som.history[-1]["quantization_error"])
             rows_data.append(
-                {"grid": f"{r}x{c}", "mean_qe": float(np.mean(qes)),
-                 "std_qe": float(np.std(qes))}
+                {
+                    "grid": f"{r}x{c}",
+                    "mean_qe": float(np.mean(qes)),
+                    "std_qe": float(np.std(qes)),
+                }
             )
             print(f"  {r}x{c}: QE = {np.mean(qes):.4f} +/- {np.std(qes):.4f}")
 
@@ -167,19 +172,24 @@ class KohonenExperiment:
         rows_data = []
         fig, axes = plt.subplots(2, 2, figsize=(14, 12))
         combos = [
-            ("rectangular", "sample"), ("rectangular", "random"),
-            ("hexagonal", "sample"), ("hexagonal", "random"),
+            ("rectangular", "sample"),
+            ("rectangular", "random"),
+            ("hexagonal", "sample"),
+            ("hexagonal", "random"),
         ]
         for ax, (topo, init) in zip(axes.ravel(), combos):
-            som = self._make_som(topology=topo, init_method=init, seed=42).fit(self.data)
+            som = self._make_som(topology=topo, init_method=init, seed=42).fit(
+                self.data
+            )
             qe = som.history[-1]["quantization_error"]
             plot_country_labels(
-                som, self.data, self.labels, ax=ax,
+                som,
+                self.data,
+                self.labels,
+                ax=ax,
                 title=f"{topo} / init={init}  QE={qe:.3f}",
             )
-            rows_data.append(
-                {"topology": topo, "init": init, "qe": float(qe)}
-            )
+            rows_data.append({"topology": topo, "init": init, "qe": float(qe)})
         fig.suptitle("Topology x initialization", fontsize=14)
         fig.tight_layout()
         self._save_fig(fig, "11_sweep_topology_init.png")
@@ -189,7 +199,9 @@ class KohonenExperiment:
         for init in ["random", "sample"]:
             per_seed = []
             for seed in range(10):
-                som = self._make_som(init_method=init, seed=seed, epochs=300).fit(self.data)
+                som = self._make_som(init_method=init, seed=seed, epochs=300).fit(
+                    self.data
+                )
                 per_seed.append([h["quantization_error"] for h in som.history])
             avg = np.mean(per_seed, axis=0)
             histories[init] = [
@@ -197,7 +209,8 @@ class KohonenExperiment:
             ]
         fig, ax = plt.subplots(figsize=(8, 5))
         plot_quantization_error(
-            histories, ax=ax,
+            histories,
+            ax=ax,
             title="Convergence: random vs sample init (mean over 10 seeds)",
         )
         self._save_fig(fig, "12_sweep_init_convergence.png")
@@ -211,7 +224,10 @@ class KohonenExperiment:
             som = self._make_som(distance=dist_name, seed=42).fit(self.data)
             qe = som.history[-1]["quantization_error"]
             plot_country_labels(
-                som, self.data, self.labels, ax=ax,
+                som,
+                self.data,
+                self.labels,
+                ax=ax,
                 title=f"distance={dist_name}  QE={qe:.3f}",
             )
             rows_data.append({"distance": dist_name, "qe": float(qe)})
@@ -226,7 +242,11 @@ class KohonenExperiment:
             "constant 0.1": 0.1,
             "constant 0.5": 0.5,
             "linear 0.5->0.01": {"kind": "linear", "initial": 0.5, "final": 0.01},
-            "exponential 0.5->0.01": {"kind": "exponential", "initial": 0.5, "final": 0.01},
+            "exponential 0.5->0.01": {
+                "kind": "exponential",
+                "initial": 0.5,
+                "final": 0.01,
+            },
             "inverse 0.5->0.01": {"kind": "inverse", "initial": 0.5, "final": 0.01},
         }
         histories = {}
@@ -239,10 +259,15 @@ class KohonenExperiment:
             print(f"  {label}: QE = {som.history[-1]['quantization_error']:.4f}")
 
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        plot_schedule_curves(sched_curves, ax=axes[0],
-                             ylabel="learning rate", title="Learning-rate schedules")
-        plot_quantization_error(histories, ax=axes[1],
-                                title="QE vs epoch by LR schedule")
+        plot_schedule_curves(
+            sched_curves,
+            ax=axes[0],
+            ylabel="learning rate",
+            title="Learning-rate schedules",
+        )
+        plot_quantization_error(
+            histories, ax=axes[1], title="QE vs epoch by LR schedule"
+        )
         fig.tight_layout()
         self._save_fig(fig, "30_sweep_lr_schedule.png")
 
@@ -265,10 +290,15 @@ class KohonenExperiment:
             print(f"  {label}: QE = {som.history[-1]['quantization_error']:.4f}")
 
         fig, axes = plt.subplots(1, 2, figsize=(14, 5))
-        plot_schedule_curves(sched_curves, ax=axes[0],
-                             ylabel="neighborhood radius", title="Radius schedules")
-        plot_quantization_error(histories, ax=axes[1],
-                                title="QE vs epoch by radius schedule")
+        plot_schedule_curves(
+            sched_curves,
+            ax=axes[0],
+            ylabel="neighborhood radius",
+            title="Radius schedules",
+        )
+        plot_quantization_error(
+            histories, ax=axes[1], title="QE vs epoch by radius schedule"
+        )
         fig.tight_layout()
         self._save_fig(fig, "31_sweep_radius_schedule.png")
 
@@ -287,8 +317,9 @@ class KohonenExperiment:
         stds = [s for _, s in results]
 
         fig, ax = plt.subplots(figsize=(7, 5))
-        ax.errorbar(epochs_options, means, yerr=stds, marker="o",
-                    capsize=4, linewidth=1.5)
+        ax.errorbar(
+            epochs_options, means, yerr=stds, marker="o", capsize=4, linewidth=1.5
+        )
         ax.set_xscale("log")
         ax.set_xlabel("epochs")
         ax.set_ylabel("quantization error (final)")
@@ -302,12 +333,18 @@ class KohonenExperiment:
         for seed in range(20):
             som = self._make_som(seed=seed).fit(self.data)
             qes.append(som.history[-1]["quantization_error"])
-        print(f"  mean={np.mean(qes):.4f}  std={np.std(qes):.4f}  "
-              f"min={min(qes):.4f}  max={max(qes):.4f}")
+        print(
+            f"  mean={np.mean(qes):.4f}  std={np.std(qes):.4f}  "
+            f"min={min(qes):.4f}  max={max(qes):.4f}"
+        )
         fig, ax = plt.subplots(figsize=(7, 4))
         ax.hist(qes, bins=10, color="darkorange", edgecolor="black")
-        ax.axvline(np.mean(qes), color="black", linestyle="--",
-                   label=f"mean={np.mean(qes):.3f}")
+        ax.axvline(
+            np.mean(qes),
+            color="black",
+            linestyle="--",
+            label=f"mean={np.mean(qes):.3f}",
+        )
         ax.set_xlabel("final quantization error")
         ax.set_ylabel("count")
         ax.set_title("Seed stability (20 random seeds, baseline config)")
@@ -323,9 +360,7 @@ class KohonenExperiment:
             writer.writerow(["sweep", "params", "metric", "value"])
             for sweep_name, entries in rows.items():
                 for entry in entries:
-                    value = next(
-                        (entry[k] for k in metric_keys if k in entry), None
-                    )
+                    value = next((entry[k] for k in metric_keys if k in entry), None)
                     params = ";".join(
                         f"{k}={v}" for k, v in entry.items() if k not in metric_keys
                     )

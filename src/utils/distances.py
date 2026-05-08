@@ -26,7 +26,5 @@ DISTANCES: dict[str, DistanceFn] = {
 
 def get(name: str) -> DistanceFn:
     if name not in DISTANCES:
-        raise ValueError(
-            f"Unknown distance '{name}'. Available: {list(DISTANCES)}"
-        )
+        raise ValueError(f"Unknown distance '{name}'. Available: {list(DISTANCES)}")
     return DISTANCES[name]

@@ -45,6 +45,4 @@ def initialize(
         )
     if method == "sample":
         return sample_weights(rows, cols, data, rng)
-    raise ValueError(
-        f"Unknown init method '{method}'. Available: 'random', 'sample'"
-    )
+    raise ValueError(f"Unknown init method '{method}'. Available: 'random', 'sample'")
