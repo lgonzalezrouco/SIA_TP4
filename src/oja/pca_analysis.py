@@ -1,7 +1,8 @@
 import os
-import pandas as pd
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 import seaborn as sns
 from sklearn.decomposition import PCA
 
@@ -56,8 +57,8 @@ class PCAAnalyzer:
         )
         axes[0].tick_params(axis="x", rotation=45)
         axes[0].set_yscale(
-            "log"
-        )  # Use log scale for better visualization due to Area/GDP differences
+            "symlog"
+        )  # Use symlog scale to handle negative values (like Pop.growth) while showing Area/GDP scale
 
         # Standardized Data Boxplot
         sns.boxplot(data=self.df_std, ax=axes[1])
