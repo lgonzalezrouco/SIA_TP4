@@ -19,7 +19,39 @@
     "tolerance": 1e-6
   },
   "hopfield": {
-    "patterns": ["A", "B", "C", "D"],
-    "noise_level": 0.1
+    "shape": [5, 5],
+    "letters_path": "data/letters.json",
+    "patterns": ["A", "L", "T", "V"],
+    "combo_k": 4,
+    "max_steps": 50,
+    "async_update": true,
+    "seed": 42,
+    "noise": {"n_flips": 3, "trials": 20},
+    "spurious": {"n_flips": 13, "trials": 100},
+    "capacity": {
+      "p_values": [2, 3, 4, 5, 6, 7, 8],
+      "noise_flips": [1, 2, 3, 5, 8, 12],
+      "trials": 30
+    },
+    "sweep": {
+      "dimensions": [
+        {"shape": [5, 5]},
+        {"shape": [7, 7]}
+      ],
+      "p_values": [2, 3, 4, 5, 6],
+      "compare_fixed": ["A", "L", "T", "V"]
+    },
+    "ppt": {
+      "p_values": [2, 3, 4, 5, 6]
+    },
+    "analyses": {
+      "ppt_bundle": true,
+      "complete_sweep": false,
+      "orthogonality": false,
+      "recall": false,
+      "spurious": false,
+      "single_pixel": false,
+      "capacity": false
+    }
   }
 }
