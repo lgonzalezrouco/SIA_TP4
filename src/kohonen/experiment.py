@@ -30,6 +30,30 @@ FEATURES = [
 ]
 
 
+DEFAULT_GRID_SIZES_SWEEP = ["3x3", "4x4", "5x5", "6x6", "7x7", "8x8"]
+
+
+def parse_grid_size_string(spec: str) -> tuple[int, int]:
+    """Parse ``"5x5"`` or ``"10x8"`` into ``(rows, cols)``."""
+    text = str(spec).strip().lower().replace(" ", "")
+    if "x" not in text:
+        raise ValueError(
+            f"Invalid grid size '{spec}': expected format 'RxC' (e.g. '5x5')"
+        )
+    rows_s, cols_s = text.split("x", 1)
+    rows, cols = int(rows_s), int(cols_s)
+    if rows <= 0 or cols <= 0:
+        raise ValueError(f"Grid dimensions must be positive; got '{spec}'")
+    return rows, cols
+
+
+def parse_grid_sizes_sweep(config: dict) -> list[tuple[int, int]]:
+    specs = config.get("grid_sizes_sweep", DEFAULT_GRID_SIZES_SWEEP)
+    if not specs:
+        return [parse_grid_size_string(s) for s in DEFAULT_GRID_SIZES_SWEEP]
+    return [parse_grid_size_string(s) for s in specs]
+
+
 def _resolve_grid_size(config: dict) -> tuple[int, int]:
     if "grid_rows" in config or "grid_cols" in config:
         rows = config.get("grid_rows", config.get("grid_cols", 5))
@@ -138,22 +162,39 @@ class KohonenExperiment:
     # --------------------------------------------------------------- sweeps
     def _sweep_grid_size(self) -> list[dict]:
         print("== Sweep: grid size ==")
-        sizes = [(3, 3), (4, 4), (5, 5), (6, 6), (7, 7), (8, 8)]
-        seeds = list(range(5))
+        sizes = parse_grid_sizes_sweep(self.config)
+        sweep_seeds = int(self.config.get("grid_sweep_seeds", 5))
+        map_seed = self.config.get("seed", 42)
         rows_data = []
+
         for r, c in sizes:
+            label = f"{r}x{c}"
             qes = []
-            for seed in seeds:
+            for seed in range(sweep_seeds):
                 som = self._make_som(grid_rows=r, grid_cols=c, seed=seed).fit(self.data)
                 qes.append(som.history[-1]["quantization_error"])
+            mean_qe = float(np.mean(qes))
+            std_qe = float(np.std(qes))
             rows_data.append(
                 {
-                    "grid": f"{r}x{c}",
-                    "mean_qe": float(np.mean(qes)),
-                    "std_qe": float(np.std(qes)),
+                    "grid": label,
+                    "mean_qe": mean_qe,
+                    "std_qe": std_qe,
                 }
             )
-            print(f"  {r}x{c}: QE = {np.mean(qes):.4f} +/- {np.std(qes):.4f}")
+            print(f"  {label}: QE = {mean_qe:.4f} +/- {std_qe:.4f}")
+
+            som = self._make_som(grid_rows=r, grid_cols=c, seed=map_seed).fit(self.data)
+            qe = som.history[-1]["quantization_error"]
+            fig, ax = plt.subplots(figsize=(9, 8))
+            plot_country_labels(
+                som,
+                self.data,
+                self.labels,
+                ax=ax,
+                title=f"Country map ({label})  QE={qe:.3f}",
+            )
+            self._save_fig(fig, f"10_country_map_{label}.png")
 
         fig, ax = plt.subplots(figsize=(7, 5))
         xs = [row["grid"] for row in rows_data]
@@ -161,7 +202,9 @@ class KohonenExperiment:
         stds = [row["std_qe"] for row in rows_data]
         ax.bar(xs, means, yerr=stds, capsize=4, color="steelblue", alpha=0.8)
         ax.set_xlabel("grid size")
-        ax.set_ylabel("quantization error (final, mean over 5 seeds)")
+        ax.set_ylabel(
+            f"quantization error (final, mean over {sweep_seeds} seeds)"
+        )
         ax.set_title("Effect of grid size on quantization error")
         ax.grid(True, axis="y", alpha=0.3)
         self._save_fig(fig, "10_sweep_grid_size.png")

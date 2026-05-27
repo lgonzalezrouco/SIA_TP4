@@ -11,7 +11,8 @@
     "radius": {"kind": "exponential", "initial": 3.0, "final": 1.0},
     "epochs": 500,
     "seed": 42,
-    "normalization": "z-score"
+    "normalization": "z-score",
+    "grid_sizes_sweep": ["3x3", "5x5", "6x6", "9x9", "12x12"]
   },
   "oja": {
     "learning_rate": 0.001,

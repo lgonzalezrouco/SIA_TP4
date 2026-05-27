@@ -88,7 +88,8 @@ Kohonen:
     "learning_rate": {"kind": "exponential", "initial": 0.5, "final": 0.01},
     "radius": {"kind": "exponential", "initial": 3.0, "final": 1.0},
     "epochs": 500,
-    "seed": 42
+    "seed": 42,
+    "grid_sizes_sweep": ["3x3", "4x4", "5x5", "6x6", "7x7", "8x8"]
   },
   "oja": { ... },
   "hopfield": { ... }
@@ -98,6 +99,11 @@ Kohonen:
 `learning_rate` y `radius` aceptan tanto un número (constante) como un
 diccionario con `kind` ∈ `{constant, linear, exponential, inverse}` para
 schedules variables.
+
+`grid_sizes_sweep` lista tamaños como `"5x5"` o `"10x8"` para el barrido de
+grilla: genera `10_sweep_grid_size.png`, un `10_country_map_{RxC}.png` por
+cada tamaño (misma vista que `01_country_map.png`) y opcionalmente
+`grid_sweep_seeds` (default `5`) para el promedio de error de cuantización.
 
 ## Ejercicio 2 - Red de Hopfield
 
