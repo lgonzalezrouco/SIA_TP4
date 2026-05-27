@@ -150,28 +150,58 @@ def plot_combinations_scatter(
     ax.set_title(title)
     ax.grid(True, alpha=0.3)
 
-    # annotate best and worst groups by pi_medio
+    # Highlight and annotate only the two most relevant extremes by PI medio:
+    # best (lowest) and worst (highest). This avoids heavy label overlap.
     df_sorted = df.sort_values("pi_medio")
-    for _, row in df_sorted.head(3).iterrows():
-        ax.annotate(
-            "".join(row["grupo"]),
-            (row["pi_medio"], row["pi_max"]),
-            xytext=(5, 5),
-            textcoords="offset points",
-            fontsize=9,
-            color="green",
-            fontweight="bold",
-        )
-    for _, row in df_sorted.tail(3).iterrows():
-        ax.annotate(
-            "".join(row["grupo"]),
-            (row["pi_medio"], row["pi_max"]),
-            xytext=(5, -10),
-            textcoords="offset points",
-            fontsize=9,
-            color="red",
-            fontweight="bold",
-        )
+    best = df_sorted.iloc[0]
+    worst = df_sorted.iloc[-1]
+
+    ax.scatter(
+        [best["pi_medio"]],
+        [best["pi_max"]],
+        s=220,
+        marker="*",
+        color="limegreen",
+        edgecolor="black",
+        linewidth=0.8,
+        zorder=5,
+    )
+    ax.scatter(
+        [worst["pi_medio"]],
+        [worst["pi_max"]],
+        s=220,
+        marker="X",
+        color="crimson",
+        edgecolor="black",
+        linewidth=0.8,
+        zorder=5,
+    )
+
+    ax.annotate(
+        f"best: {''.join(best['grupo'])}",
+        (best["pi_medio"], best["pi_max"]),
+        xytext=(-70, -16),
+        textcoords="offset points",
+        fontsize=9,
+        color="black",
+        fontweight="bold",
+        bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="limegreen", lw=1.2),
+        arrowprops=dict(arrowstyle="->", color="limegreen", lw=1.2),
+        zorder=6,
+    )
+    ax.annotate(
+        f"worst: {''.join(worst['grupo'])}",
+        (worst["pi_medio"], worst["pi_max"]),
+        xytext=(-90, 14),
+        textcoords="offset points",
+        fontsize=9,
+        color="black",
+        fontweight="bold",
+        ha="right",
+        bbox=dict(boxstyle="round,pad=0.25", fc="white", ec="crimson", lw=1.2),
+        arrowprops=dict(arrowstyle="->", color="crimson", lw=1.2),
+        zorder=6,
+    )
     fig.tight_layout()
     return fig
 
@@ -214,15 +244,32 @@ def plot_spurious_examples(
     title: str = "Spurious attractors",
     max_examples: int = 8,
 ) -> plt.Figure:
-    """Grid: rows = examples, columns = (query, final state)."""
+    """Horizontal layout: top row = queries, bottom row = spurious finals."""
     examples = examples[:max_examples]
     n = len(examples)
-    fig, axes = plt.subplots(n, 2, figsize=(4, 1.9 * n))
+    if n == 0:
+        fig, ax = plt.subplots(figsize=(6, 2.2))
+        ax.axis("off")
+        ax.set_title(title)
+        ax.text(0.5, 0.5, "No spurious examples found", ha="center", va="center")
+        fig.tight_layout()
+        return fig
+
+    fig, axes = plt.subplots(2, n, figsize=(2.2 * n, 4.2))
     if n == 1:
-        axes = np.array([axes])
+        axes = axes.reshape(2, 1)
+
     for i, ex in enumerate(examples):
-        _draw_pattern(axes[i, 0], ex["query"].reshape(shape), title=f"query (from {ex['source']})")
-        _draw_pattern(axes[i, 1], ex["final"].reshape(shape), title="spurious final")
+        _draw_pattern(
+            axes[0, i],
+            ex["query"].reshape(shape),
+            title=f"query ({ex['source']})",
+        )
+        _draw_pattern(
+            axes[1, i],
+            ex["final"].reshape(shape),
+            title="spurious final",
+        )
     fig.suptitle(title)
     fig.tight_layout()
     return fig

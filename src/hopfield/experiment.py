@@ -133,6 +133,7 @@ class HopfieldExperiment:
             self._run_recall()
         if self.do_spurious:
             self._run_spurious()
+        self._run_energy_comparison()
         if self.do_single:
             self._run_single_pixel()
         if self.do_capacity:
@@ -226,6 +227,8 @@ class HopfieldExperiment:
         # --- 5) Espurios + 1 pixel
         print("  [4/5] Estados espurios...")
         self._run_spurious()
+        print("  [4.5/5] Comparativa de energia (ruido bajo vs alto)...")
+        self._run_energy_comparison()
         print("  [5/5] Robustez 1 pixel...")
         self._run_single_pixel()
 
@@ -279,6 +282,8 @@ class HopfieldExperiment:
             "",
             "## Extras clase",
             "- spurious/examples.png, spurious/summary.csv",
+            "- spurious/A_energy_compare_correct_vs_high_noise.png",
+            "- spurious/A_energy_compare_correct_vs_high_noise.csv",
             "- single_pixel/results.csv",
             "",
             f"Grupo almacenado: {''.join(self.group_names)}",
@@ -458,6 +463,123 @@ class HopfieldExperiment:
             plt.close(fig)
         else:
             print("    no se encontraron estados espurios con la configuración actual.")
+
+    # ---------------------------------------------------------------- (3.5) energy comparison
+    def _run_energy_comparison(self) -> None:
+        """Siempre genera una comparacion de energia:
+        - ruido moderado (config noise.n_flips)
+        - ruido alto (config spurious.n_flips), buscando caso espurio.
+        """
+        print("[3.5/5] Comparativa de energia...")
+        out_dir = self.output_dir / "spurious"
+        out_dir.mkdir(exist_ok=True)
+
+        net, flats = self._train_group(self.group_names)
+        target_name = "A" if "A" in self.group_names else self.group_names[0]
+        target = flats[target_name]
+
+        low_flips = int(self.noise_cfg.get("n_flips", 3))
+        high_flips = int(self.spurious_cfg.get("n_flips", self.n_neurons // 2))
+
+        # Caso 1: ruido moderado
+        rng_low = np.random.default_rng(self.seed + 12345)
+        query_low = add_noise(target, n_flips=low_flips, rng=rng_low)
+        res_low = net.recall(
+            query_low,
+            max_steps=self.max_steps,
+            async_update=self.async_update,
+            record_history=True,
+            rng=rng_low,
+        )
+        _, kind_low = match_stored(res_low.final_state, flats)
+
+        # Caso 2: ruido alto (buscar espurio para mostrar contraste)
+        res_high = None
+        high_label = None
+        max_trials = max(200, int(self.spurious_cfg.get("trials", 100)) * 20)
+        for trial in range(1, max_trials + 1):
+            rng_high = np.random.default_rng(self.seed + 700000 + trial)
+            query_high = add_noise(target, n_flips=high_flips, rng=rng_high)
+            candidate = net.recall(
+                query_high,
+                max_steps=self.max_steps,
+                async_update=self.async_update,
+                record_history=True,
+                rng=rng_high,
+            )
+            _, kind = match_stored(candidate.final_state, flats)
+            if kind == "spurious":
+                res_high = candidate
+                high_label = f"spurious (trial={trial})"
+                break
+
+        if res_high is None:
+            rng_high = np.random.default_rng(self.seed + 799999)
+            query_high = add_noise(target, n_flips=high_flips, rng=rng_high)
+            fallback = net.recall(
+                query_high,
+                max_steps=self.max_steps,
+                async_update=self.async_update,
+                record_history=True,
+                rng=rng_high,
+            )
+            _, kind = match_stored(fallback.final_state, flats)
+            res_high = fallback
+            high_label = f"{kind} (fallback)"
+
+        fig, ax = plt.subplots(figsize=(8.5, 4.8))
+        ax.plot(
+            range(len(res_low.energies)),
+            res_low.energies,
+            marker="o",
+            linewidth=2,
+            label=f"{target_name} con {low_flips} flips -> {kind_low}",
+        )
+        ax.plot(
+            range(len(res_high.energies)),
+            res_high.energies,
+            marker="o",
+            linewidth=2,
+            label=f"{target_name} con {high_flips} flips -> {high_label}",
+        )
+        ax.set_xlabel("step")
+        ax.set_ylabel("E(S)")
+        ax.set_title("Comparacion de energia: recall correcto vs ruido alto")
+        ax.grid(True, alpha=0.3)
+        ax.legend(fontsize=9, loc="best")
+        fig.tight_layout()
+        fig.savefig(
+            out_dir / f"{target_name}_energy_compare_correct_vs_high_noise.png",
+            dpi=150,
+            bbox_inches="tight",
+        )
+        plt.close(fig)
+
+        rows = []
+        for i, e in enumerate(res_low.energies):
+            rows.append(
+                {
+                    "case": "correct_or_low_noise",
+                    "target": target_name,
+                    "n_flips": low_flips,
+                    "step": i,
+                    "energy": float(e),
+                }
+            )
+        for i, e in enumerate(res_high.energies):
+            rows.append(
+                {
+                    "case": "high_noise_case",
+                    "target": target_name,
+                    "n_flips": high_flips,
+                    "step": i,
+                    "energy": float(e),
+                }
+            )
+        pd.DataFrame(rows).to_csv(
+            out_dir / f"{target_name}_energy_compare_correct_vs_high_noise.csv",
+            index=False,
+        )
 
     # ---------------------------------------------------------------- (4) single pixel
     def _run_single_pixel(self) -> None:
