@@ -4,14 +4,46 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 
-def plot_convergence(history, output_dir="results/oja"):
+def plot_convergence(histories, output_dir="results/oja"):
     os.makedirs(output_dir, exist_ok=True)
     plt.figure(figsize=(8, 6))
-    plt.plot(range(1, len(history) + 1), history, linestyle="-")
+
+    # Pad histories with their last value so they all have the same length
+    max_len = max(len(h) for h in histories)
+    padded_histories = []
+    for h in histories:
+        if len(h) < max_len:
+            padded_h = list(h) + [h[-1]] * (max_len - len(h))
+        else:
+            padded_h = list(h)
+        padded_histories.append(padded_h)
+
+    padded_histories = np.array(padded_histories)
+    mean_history = np.mean(padded_histories, axis=0)
+    std_history = np.std(padded_histories, axis=0)
+
+    epochs = np.arange(1, max_len + 1)
+
+    plt.plot(epochs, mean_history, linestyle="-", label="Promedio ||Δw||", color="blue")
+
+    # Clamp the lower bound to a very small positive number to prevent issues with log scale
+    lower_bound = np.maximum(mean_history - std_history, 1e-15)
+    upper_bound = mean_history + std_history
+
+    plt.fill_between(
+        epochs,
+        lower_bound,
+        upper_bound,
+        color="blue",
+        alpha=0.2,
+        label="Desviación Estándar (±1 std)",
+    )
+
     plt.yscale("log")
     plt.xlabel("Época")
     plt.ylabel("||Δw|| (Escala Log)")
-    plt.title("Convergencia de la Regla de Oja")
+    plt.title("Convergencia de la Regla de Oja (Promedio y Desviación de 5 corridas)")
+    plt.legend()
     plt.grid(True, which="both", ls="--", alpha=0.5)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "07_oja_convergence.png"))
@@ -23,12 +55,32 @@ def plot_loadings_comparison(
 ):
     os.makedirs(output_dir, exist_ok=True)
 
+    oja_loadings = np.asarray(oja_loadings)
+    if oja_loadings.ndim == 2:
+        oja_mean = np.mean(oja_loadings, axis=0)
+        oja_std = np.std(oja_loadings, axis=0)
+    else:
+        oja_mean = oja_loadings
+        oja_std = None
+
     x = np.arange(len(feature_names))
     width = 0.35
 
     plt.figure(figsize=(10, 6))
     plt.bar(x - width / 2, pca_loadings, width, label="sklearn PCA", color="skyblue")
-    plt.bar(x + width / 2, oja_loadings, width, label="Oja Rule", color="salmon")
+    
+    if oja_std is not None:
+        plt.bar(
+            x + width / 2,
+            oja_mean,
+            width,
+            yerr=oja_std,
+            capsize=4,
+            label="Oja Rule (Promedio)",
+            color="salmon",
+        )
+    else:
+        plt.bar(x + width / 2, oja_mean, width, label="Oja Rule", color="salmon")
 
     plt.axhline(0, color="black", linewidth=1)
     plt.xlabel("Features")
@@ -57,10 +109,12 @@ def plot_sweep_results(df_results, output_dir="results/oja"):
         y="Angle_Degrees",
         hue="Learning_Rate",
         palette="viridis",
-        errorbar=None,
+        errorbar="sd",
+        capsize=0.1,
     )
     plt.title("Error Angular según Estandarización y LR (con decay inverso 1/(1+t))")
     plt.ylabel("Ángulo de Diferencia (°)")
+    plt.ylim(bottom=0)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "09_sweep_methods_lr.png"))
@@ -75,10 +129,12 @@ def plot_sweep_results(df_results, output_dir="results/oja"):
         y="Angle_Degrees",
         hue="Learning_Rate",
         palette="mako",
-        errorbar=None,
+        errorbar="sd",
+        capsize=0.1,
     )
     plt.title("Error Angular según Función de Decaimiento y LR (con z-score)")
     plt.ylabel("Ángulo de Diferencia (°)")
+    plt.ylim(bottom=0)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "10_sweep_decays_lr.png"))
@@ -93,10 +149,12 @@ def plot_sweep_results(df_results, output_dir="results/oja"):
         y="Angle_Degrees",
         hue="Decay_Type",
         palette="flare",
-        errorbar=None,
+        errorbar="sd",
+        capsize=0.1,
     )
     plt.title("Error Angular según Estandarización y Decay (con LR fijo en 0.05)")
     plt.ylabel("Ángulo de Diferencia (°)")
+    plt.ylim(bottom=0)
     plt.grid(axis="y", linestyle="--", alpha=0.7)
     plt.tight_layout()
     plt.savefig(os.path.join(output_dir, "11_sweep_methods_decays.png"))
@@ -106,16 +164,23 @@ def plot_sweep_results(df_results, output_dir="results/oja"):
 def plot_table(feature_names, pca_loadings, oja_loadings, output_dir="results/oja"):
     os.makedirs(output_dir, exist_ok=True)
 
+    oja_loadings = np.asarray(oja_loadings)
+    if oja_loadings.ndim == 2:
+        oja_mean = np.mean(oja_loadings, axis=0)
+        columns = ("Feature", "sklearn PCA", "Oja Rule (Promedio)", "Diff Absoluta")
+    else:
+        oja_mean = oja_loadings
+        columns = ("Feature", "sklearn PCA", "Oja Rule", "Diff Absoluta")
+
     cell_text = []
     for i, feature in enumerate(feature_names):
         pca_val = pca_loadings[i]
-        oja_val = oja_loadings[i]
+        oja_val = oja_mean[i]
         diff = abs(pca_val - oja_val)
+        
         cell_text.append([feature, f"{pca_val:.6f}", f"{oja_val:.6f}", f"{diff:.6f}"])
 
-    columns = ("Feature", "sklearn PCA", "Oja Rule", "Diff Absoluta")
-
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(10, 4))
     ax.axis("tight")
     ax.axis("off")
 
@@ -123,7 +188,7 @@ def plot_table(feature_names, pca_loadings, oja_loadings, output_dir="results/oj
         cellText=cell_text, colLabels=columns, loc="center", cellLoc="center"
     )
     table.auto_set_font_size(False)
-    table.set_fontsize(12)
+    table.set_fontsize(10)
     table.scale(1, 1.5)
 
     # Hacer los headers en negrita (opcional, pero queda mejor)
@@ -141,6 +206,12 @@ def plot_projections_comparison(
     countries, X_std, pca_loadings, oja_loadings, output_dir="results/oja"
 ):
     os.makedirs(output_dir, exist_ok=True)
+
+    oja_loadings = np.asarray(oja_loadings)
+    if oja_loadings.ndim == 2:
+        oja_loadings = np.mean(oja_loadings, axis=0)
+        # Normalizar para proyectar
+        oja_loadings = oja_loadings / np.linalg.norm(oja_loadings)
 
     pca_proj = X_std.dot(pca_loadings)
     oja_proj = X_std.dot(oja_loadings)

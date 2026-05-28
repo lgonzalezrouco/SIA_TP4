@@ -43,24 +43,34 @@ class OjaExperiment:
         tolerance = self.config.get("oja", {}).get("tolerance", 1e-6)
         seed = self.config.get("oja", {}).get("seed", 42)
 
-        oja_neuron = OjaNeuron(
-            n_features=X_std.shape[1],
-            learning_rate=best_config["Learning_Rate"],
-            max_epochs=epochs,
-            tol=tolerance,
-            seed=seed,
-            decay_type=best_config["Decay_Type"],
-        )
-        oja_neuron.fit(X_std)
-        w_oja = oja_neuron.w.copy()
+        histories = []
+        w_ojas = []
+
+        for run_idx in range(5):
+            run_seed = seed + run_idx
+            oja_neuron = OjaNeuron(
+                n_features=X_std.shape[1],
+                learning_rate=best_config["Learning_Rate"],
+                max_epochs=epochs,
+                tol=tolerance,
+                seed=run_seed,
+                decay_type=best_config["Decay_Type"],
+            )
+            oja_neuron.fit(X_std)
+            histories.append(oja_neuron.history)
+
+            # Align weights of this run immediately with respect to pca_loadings
+            w_run = oja_neuron.w.copy()
+            alignment = np.sign(np.dot(w_run, pca_loadings))
+            if alignment == 0:
+                alignment = 1
+            w_ojas.append(w_run * alignment)
+
+        # Average aligned weights and normalize the resulting vector
+        w_oja_aligned = np.mean(w_ojas, axis=0)
+        w_oja_aligned /= np.linalg.norm(w_oja_aligned)
 
         # 4. Comparación Oja vs PCA
-        # Alinear signos
-        alignment = np.sign(np.dot(w_oja, pca_loadings))
-        if alignment == 0:
-            alignment = 1
-        w_oja_aligned = w_oja * alignment
-
         norm_pca = np.linalg.norm(pca_loadings)
         norm_oja = np.linalg.norm(w_oja_aligned)
 
@@ -69,7 +79,7 @@ class OjaExperiment:
         cos_sim_clipped = np.clip(cos_sim, -1.0, 1.0)
         angle = np.arccos(cos_sim_clipped) * 180 / np.pi
 
-        print(f"\nSimilitud Coseno entre Oja y PCA: {cos_sim:.6f}")
+        print(f"\nSimilitud Coseno entre Oja y PCA (Promedio): {cos_sim:.6f}")
         print(f"Ángulo de diferencia: {angle:.4f}°")
 
         # Crear tabla comparativa
@@ -86,15 +96,15 @@ class OjaExperiment:
 
         # Graficar convergencia y comparación
         countries = self.data.iloc[:, 0].values
-        plot_convergence(oja_neuron.history, output_dir=self.output_dir)
+        plot_convergence(histories, output_dir=self.output_dir)
         plot_loadings_comparison(
-            feature_names, pca_loadings, w_oja_aligned, output_dir=self.output_dir
+            feature_names, pca_loadings, w_ojas, output_dir=self.output_dir
         )
         plot_table(
-            feature_names, pca_loadings, w_oja_aligned, output_dir=self.output_dir
+            feature_names, pca_loadings, w_ojas, output_dir=self.output_dir
         )
         plot_projections_comparison(
-            countries, X_std, pca_loadings, w_oja_aligned, output_dir=self.output_dir
+            countries, X_std, pca_loadings, w_ojas, output_dir=self.output_dir
         )
 
         print(
@@ -119,48 +129,54 @@ class OjaExperiment:
             X_std, _ = preprocess_data(self.data, method=method)
             for lr in lrs:
                 for decay in decays:
-                    oja_neuron = OjaNeuron(
-                        n_features=X_std.shape[1],
-                        learning_rate=lr,
-                        max_epochs=epochs,
-                        tol=tolerance,
-                        seed=seed,
-                        decay_type=decay,
-                    )
-                    oja_neuron.fit(X_std)
-                    w_oja = oja_neuron.w.copy()
+                    for run_idx in range(5):
+                        run_seed = seed + run_idx
+                        oja_neuron = OjaNeuron(
+                            n_features=X_std.shape[1],
+                            learning_rate=lr,
+                            max_epochs=epochs,
+                            tol=tolerance,
+                            seed=run_seed,
+                            decay_type=decay,
+                        )
+                        oja_neuron.fit(X_std)
+                        w_oja = oja_neuron.w.copy()
+                        if np.isnan(w_oja).any():
+                            angle = 180.0
+                            cos_sim = 0.0
+                        else:
+                            alignment = np.sign(np.dot(w_oja, pca_loadings))
+                            if alignment == 0:
+                                alignment = 1
+                            w_oja_aligned = w_oja * alignment
 
-                    alignment = np.sign(np.dot(w_oja, pca_loadings))
-                    if alignment == 0:
-                        alignment = 1
-                    w_oja_aligned = w_oja * alignment
+                            norm_pca = np.linalg.norm(pca_loadings)
+                            norm_oja = np.linalg.norm(w_oja_aligned)
 
-                    norm_pca = np.linalg.norm(pca_loadings)
-                    norm_oja = np.linalg.norm(w_oja_aligned)
+                            cos_sim = np.dot(w_oja_aligned, pca_loadings) / (
+                                norm_pca * norm_oja
+                            )
+                            cos_sim_clipped = np.clip(cos_sim, -1.0, 1.0)
+                            angle = np.arccos(cos_sim_clipped) * 180 / np.pi
 
-                    cos_sim = np.dot(w_oja_aligned, pca_loadings) / (
-                        norm_pca * norm_oja
-                    )
-                    cos_sim_clipped = np.clip(cos_sim, -1.0, 1.0)
-                    angle = np.arccos(cos_sim_clipped) * 180 / np.pi
+                        epochs_run = len(oja_neuron.history)
 
-                    epochs_run = len(oja_neuron.history)
-
-                    results.append(
-                        {
-                            "Method": method,
-                            "Learning_Rate": lr,
-                            "Decay_Type": decay,
-                            "Angle_Degrees": angle,
-                            "Cos_Sim": cos_sim,
-                            "Epochs": epochs_run,
-                        }
-                    )
+                        results.append(
+                            {
+                                "Method": method,
+                                "Learning_Rate": lr,
+                                "Decay_Type": decay,
+                                "Run": run_idx,
+                                "Seed": run_seed,
+                                "Angle_Degrees": angle,
+                                "Cos_Sim": cos_sim,
+                                "Epochs": epochs_run,
+                            }
+                        )
 
         import pandas as pd
 
         df_results = pd.DataFrame(results)
-        df_results = df_results.sort_values(by="Angle_Degrees", ascending=True)
 
         csv_path = os.path.join(self.output_dir, "oja_sweep_results.csv")
         df_results.to_csv(csv_path, index=False)
@@ -168,10 +184,24 @@ class OjaExperiment:
         # Generar gráficos del sweep
         plot_sweep_results(df_results, output_dir=self.output_dir)
 
-        print(f"Sweep completado. Se probaron {len(results)} combinaciones.")
+        print(f"Sweep completado. Se probaron {len(results)} corridas totales (45 combinaciones x 5 corridas).")
         print(f"Resultados guardados en {csv_path}\n")
 
-        print("Top 5 Mejores Configuraciones (menor ángulo):")
-        print(df_results.head(5).to_string(index=False))
+        # Agrupar para encontrar el mejor promedio por configuración de hiperparámetros
+        df_grouped = df_results.groupby(["Method", "Learning_Rate", "Decay_Type"]).agg(
+            mean_angle=("Angle_Degrees", "mean"),
+            mean_cos_sim=("Cos_Sim", "mean"),
+            mean_epochs=("Epochs", "mean")
+        ).reset_index()
 
-        return df_results.iloc[0].to_dict()
+        df_grouped = df_grouped.sort_values(by="mean_angle", ascending=True)
+
+        print("Top 5 Mejores Configuraciones (menor ángulo promedio):")
+        print(df_grouped.head(5).to_string(index=False))
+
+        best_row = df_grouped.iloc[0]
+        return {
+            "Method": best_row["Method"],
+            "Learning_Rate": best_row["Learning_Rate"],
+            "Decay_Type": best_row["Decay_Type"]
+        }

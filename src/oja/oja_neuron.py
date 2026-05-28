@@ -34,10 +34,18 @@ class OjaNeuron:
             w_old = self.w.copy()
             indices = np.random.permutation(len(X))
 
+            diverged = False
             for i in indices:
                 x = X[i]
                 y = np.inner(x, self.w)
                 self.w += lr * y * (x - y * self.w)
+                if np.any(np.abs(self.w) > 10.0):
+                    self.w = np.full_like(self.w, np.nan)
+                    diverged = True
+                    break
+
+            if diverged:
+                break
 
             delta = np.linalg.norm(self.w - w_old)
             self.history.append(delta)
