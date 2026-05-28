@@ -61,14 +61,21 @@ class OjaExperiment:
 
             # Align weights of this run immediately with respect to pca_loadings
             w_run = oja_neuron.w.copy()
+            if np.isnan(w_run).any():
+                print(f"[FINAL] Advertencia: Corrida {run_idx} del modelo final DIVERGIÓ.")
+                continue
             alignment = np.sign(np.dot(w_run, pca_loadings))
             if alignment == 0:
                 alignment = 1
             w_ojas.append(w_run * alignment)
 
         # Average aligned weights and normalize the resulting vector
-        w_oja_aligned = np.mean(w_ojas, axis=0)
-        w_oja_aligned /= np.linalg.norm(w_oja_aligned)
+        if len(w_ojas) == 0:
+            print("Error: Todas las corridas del modelo final divergieron. No se puede calcular el modelo promedio.")
+            w_oja_aligned = np.zeros(X_std.shape[1])
+        else:
+            w_oja_aligned = np.mean(w_ojas, axis=0)
+            w_oja_aligned /= np.linalg.norm(w_oja_aligned)
 
         # 4. Comparación Oja vs PCA
         norm_pca = np.linalg.norm(pca_loadings)
@@ -142,9 +149,12 @@ class OjaExperiment:
                         oja_neuron.fit(X_std)
                         w_oja = oja_neuron.w.copy()
                         if np.isnan(w_oja).any():
-                            angle = 180.0
-                            cos_sim = 0.0
+                            print(f"[SWEEP] Corrida {run_idx} DIVERGIÓ para: {method}, LR={lr}, Decay={decay}")
+                            angle = np.nan
+                            cos_sim = np.nan
+                            diverged = True
                         else:
+                            diverged = False
                             alignment = np.sign(np.dot(w_oja, pca_loadings))
                             if alignment == 0:
                                 alignment = 1
@@ -171,6 +181,7 @@ class OjaExperiment:
                                 "Angle_Degrees": angle,
                                 "Cos_Sim": cos_sim,
                                 "Epochs": epochs_run,
+                                "Diverged": diverged,
                             }
                         )
 
@@ -184,20 +195,33 @@ class OjaExperiment:
         # Generar gráficos del sweep
         plot_sweep_results(df_results, output_dir=self.output_dir)
 
-        print(f"Sweep completado. Se probaron {len(results)} corridas totales (45 combinaciones x 5 corridas).")
+        n_combinations = len(methods) * len(lrs) * len(decays)
+        print(f"Sweep completado. Se probaron {len(results)} corridas totales ({n_combinations} combinaciones x 5 corridas).")
         print(f"Resultados guardados en {csv_path}\n")
 
         # Agrupar para encontrar el mejor promedio por configuración de hiperparámetros
         df_grouped = df_results.groupby(["Method", "Learning_Rate", "Decay_Type"]).agg(
             mean_angle=("Angle_Degrees", "mean"),
             mean_cos_sim=("Cos_Sim", "mean"),
-            mean_epochs=("Epochs", "mean")
+            mean_epochs=("Epochs", "mean"),
+            diverged_count=("Diverged", "sum"),
+            success_rate=("Diverged", lambda x: 1.0 - x.mean())
         ).reset_index()
 
-        df_grouped = df_grouped.sort_values(by="mean_angle", ascending=True)
+        # Primero ordenar por success_rate (mayor a menor), luego por mean_angle (menor a mayor)
+        df_grouped = df_grouped.sort_values(by=["success_rate", "mean_angle"], ascending=[False, True])
 
-        print("Top 5 Mejores Configuraciones (menor ángulo promedio):")
+        print("Top 5 Mejores Configuraciones (mayor tasa de éxito, menor ángulo promedio):")
         print(df_grouped.head(5).to_string(index=False))
+
+        # Imprimir resumen de configuraciones que divergieron y en qué cantidad
+        df_diverged = df_grouped[df_grouped["diverged_count"] > 0]
+        if not df_diverged.empty:
+            print("\nResumen de Configuraciones con Divergencias:")
+            for _, row in df_diverged.iterrows():
+                print(f"- Estandarización: {row['Method']}, LR={row['Learning_Rate']}, Decay={row['Decay_Type']} -> Divergieron {int(row['diverged_count'])} de 5 corridas.")
+        else:
+            print("\n¡Ninguna configuración divergió!")
 
         best_row = df_grouped.iloc[0]
         return {

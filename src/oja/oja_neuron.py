@@ -45,6 +45,7 @@ class OjaNeuron:
                     break
 
             if diverged:
+                print(f"Oja divergió en época {epoch + 1} debido a desbordamiento (pesos > 10.0)")
                 break
 
             delta = np.linalg.norm(self.w - w_old)
